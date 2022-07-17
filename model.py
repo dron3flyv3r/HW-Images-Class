@@ -7,8 +7,8 @@ class Net(nn.Module):
     
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 512, 4)
-        self.conv2 = nn.Conv2d(512, 64, 5)
+        self.conv1 = nn.Conv2d(1, 32, 4)
+        self.conv2 = nn.Conv2d(32, 64, 5)
 
         self.fc1 = nn.Linear(28224, 1024)
         self.fc2 = nn.Linear(1024, 512)
