@@ -77,7 +77,6 @@ def acc():
 # Model
 net = Net().to(device)
 #net = torchvision.models.googlenet(pretrained=True).to(device)
-writer.add_graph(net, torch.rand(1, 3, 144, 144))
 
 # Loss and optimizer and scheduler
 criterion = nn.CrossEntropyLoss()
