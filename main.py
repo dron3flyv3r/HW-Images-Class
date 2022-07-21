@@ -1,35 +1,41 @@
-from csv import writer
-from genericpath import isfile
 import os
 from tqdm import tqdm
 from Data import PizzaDataset
 from model import Net
 import torch
 import torchvision
-import sys
+import torchvision.transforms as transforms
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
-
-
+import sys
 
 if not os.path.exists('runs/'):
     os.makedirs('runs/')
-epNum = len([entry for entry in os.listdir("runs/") if os.path.isfile(os.path.join("runs/", entry))])
+epNum = len(next(os.walk('runs/'))[1])
 writer = SummaryWriter(f"runs/ep{epNum}")
 
 # Hyperparameters
 batchSize = 32
-epochs = 10
+epochs = 8
+nClasses = 2
 classes = ["pizza", "not_pizza"]
 dataPath = r"./data/multi"
-imgSize = (256, 144)
+imgSize = (224, 224)
+std = [0.2059, 0.2202, 0.2091]
+mean = [0.5657, 0.4289, 0.3180]
 
 # Device
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
 
 # Loading the data from the data folder and splitting it into train and test sets.
-dataLoader = PizzaDataset(tranform=torchvision.transforms.Resize(imgSize), classes=classes, dataPath=dataPath)
+trainTransform = transforms.Compose([
+                                transforms.Resize(imgSize),
+                                transforms.ToTensor(),
+                                transforms.Normalize(torch.Tensor(mean), torch.Tensor(std))
+                                ])
+dataLoader = PizzaDataset(tranform=trainTransform, classes=classes, dataPath=dataPath)
 
 dataLen = int(len(dataLoader))
 trainLen = int(int(len(dataLoader)) * 0.8)
@@ -38,6 +44,20 @@ trainSet, testSet = torch.utils.data.random_split(dataLoader, [trainLen, testLen
 
 trainloader = torch.utils.data.DataLoader(trainSet, batch_size=batchSize, shuffle=True)
 testLoader = torch.utils.data.DataLoader(testSet, batch_size=batchSize, shuffle=False)
+
+def meen(loader):
+    mean = 0.
+    std = 0.
+    for images, _ in tqdm(loader):
+        batch_samples = images.size(0) # batch size (the last batch can have smaller size!)
+        images = images.view(batch_samples, images.size(1), -1)
+        mean += images.mean(2).sum(0)
+        std += images.std(2).sum(0)
+
+    mean /= len(loader.dataset)
+    std /= len(loader.dataset)
+    print(f"std: {std} | mean {mean}")
+
 
 # Show images
 exsampels = iter(trainloader).next()
@@ -61,7 +81,7 @@ def acc():
     total = 0
     try:
         with torch.no_grad():
-            for data in iter(testLoader).next():
+            for data in testLoader:
                 images, labels = data
                 images, labels = images.to(device), labels.to(device)
 
@@ -70,18 +90,23 @@ def acc():
 
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                break
         return (correct / total) * 100.0
     except StopIteration:
         return "No data"
 
 # Model
-net = Net().to(device)
+#net = Net().to(device)
 #net = torchvision.models.googlenet(pretrained=True).to(device)
+net = torchvision.models.resnet18(pretrained=True)
+nFeet = net.fc.in_features
+net.fc = nn.Linear(nFeet, nClasses)
+net = net.to(device)
 
 # Loss and optimizer and scheduler
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(net.parameters(), lr=1e-2)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=35, gamma=0.1)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=25)
 
 # Train the model
 pBar = tqdm(range(epochs), unit=" epoch")
@@ -92,13 +117,9 @@ bestAcc = 0
 for epoch in pBar:
     running_loss = 0.0
     tBar = tqdm(trainloader, unit=" batch", leave=False)
-    dataLen
-    for i, data in enumerate(tBar, 0):
+    for i, data in enumerate(trainloader, 0):
         inputs, labels = data
         inputs, labels = inputs.to(device), labels.to(device)
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
 
         # forward + backward + optimize
         outputs = net(inputs)
@@ -106,8 +127,12 @@ for epoch in pBar:
         loss.backward()
         optimizer.step()
 
+        # zero the parameter gradients
+        optimizer.zero_grad()
+
         running_loss += loss.item()
         tBar.set_description(f"Loss: {loss.item():.4f}")
+        tBar.update(1)
     scheduler.step()
     tmpAcc = acc()
     writer.add_scalar("Loss", running_loss/trainBatchLen, epoch + 1)
@@ -119,7 +144,10 @@ for epoch in pBar:
     if tmpAcc > bestAcc:
         bestAcc = tmpAcc
         torch.save(net.state_dict(), f"runs/ep{epNum}/best.pt")
-    pBar.set_description(f'loss: {running_loss:.4f} | lerning rate: {scheduler.get_last_lr()[0]:.4f} | acc: {tmpAcc:.2f if epoch%10==0 else oldAcc}%')
+    pBar.set_description(f'loss: {running_loss:.4f} | acc: {tmpAcc:.2f}% | best acc: {bestAcc:.2f}% | lerning rate: {scheduler.get_last_lr()[0]:.4f}')
+    
 
 torch.save(net.state_dict(), f"runs/ep{epNum}/last.pt")
 print('Finished Training')
+print(f"Best accuracy: {bestAcc}%")
+print(f"Last accuracy: {tmpAcc}%")

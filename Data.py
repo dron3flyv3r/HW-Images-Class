@@ -1,6 +1,6 @@
 import torch
 import os
-import torchvision.io as io
+from PIL import Image
 
 class PizzaDataset(torch.utils.data.Dataset):
     """Some Information about PizzaDataset"""
@@ -19,7 +19,8 @@ class PizzaDataset(torch.utils.data.Dataset):
             label += 1
 
     def __getitem__(self, index):
-        img = io.read_image(self.data[index][0])
+        
+        img = Image.open(self.data[index][0])
         if self.tranform:
             img = self.tranform(img)
         label = torch.tensor(int(self.data[index][1]))

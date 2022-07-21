@@ -21,10 +21,9 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)
         
         if self.fc1 is None:
-            self.fc1 = nn.Linear(x.shape[1], 512)
+            self.fc1 = nn.Linear(x.shape[1], 512).to(x.device)
         
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        x = F.log_softmax(x, dim=1)
         return x
