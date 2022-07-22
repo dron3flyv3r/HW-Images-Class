@@ -125,6 +125,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
+runs/*
 **._*
 data/**
+
+bella*.jpg

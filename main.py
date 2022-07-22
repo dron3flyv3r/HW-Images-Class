@@ -13,11 +13,15 @@ import sys
 if not os.path.exists('runs/'):
     os.makedirs('runs/')
 epNum = len(next(os.walk('runs/'))[1])
+while os.path.exists(f"runs/ep{epNum}"):
+    epNum += 1
+    if not os.path.exists(f"runs/ep{epNum}"):
+        break
 writer = SummaryWriter(f"runs/ep{epNum}")
 
 # Hyperparameters
 batchSize = 32
-epochs = 8
+epochs = 25
 nClasses = 2
 classes = ["pizza", "not_pizza"]
 dataPath = r"./data/multi"
@@ -95,10 +99,22 @@ def acc():
     except StopIteration:
         return "No data"
 
+def saveCheckpoint(model, optimizer, acc, classes, trans=None, filename='checkpoint'):
+    state = {
+        'epoch': epoch + 1,
+        'model state': model.state_dict(),
+        'model': model,
+        'optimizer': optimizer.state_dict(),
+        'accuracy': acc,
+        'classes': classes,
+        'transform': trans
+    }
+    torch.save(state, f"runs/ep{epNum}/{filename}.pth.tar")
+
 # Model
 #net = Net().to(device)
 #net = torchvision.models.googlenet(pretrained=True).to(device)
-net = torchvision.models.resnet18(pretrained=True)
+net = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.DEFAULT)
 nFeet = net.fc.in_features
 net.fc = nn.Linear(nFeet, nClasses)
 net = net.to(device)
@@ -139,15 +155,17 @@ for epoch in pBar:
     writer.add_scalar("Lerning rate", scheduler.get_last_lr()[0], epoch + 1)
     writer.add_scalar("Accuracy", tmpAcc, epoch + 1)
     writer.add_scalar("Accuracy change", tmpAcc - oldAcc, epoch + 1)
-    writer.close()
+
     oldAcc = tmpAcc
     if tmpAcc > bestAcc:
         bestAcc = tmpAcc
-        torch.save(net.state_dict(), f"runs/ep{epNum}/best.pt")
-    pBar.set_description(f'loss: {running_loss:.4f} | acc: {tmpAcc:.2f}% | best acc: {bestAcc:.2f}% | lerning rate: {scheduler.get_last_lr()[0]:.4f}')
-    
+        torch.save(net, f"runs/ep{epNum}/best.pt")
+        saveCheckpoint(net, optimizer, bestAcc, classes, trainTransform, filename="best")
 
-torch.save(net.state_dict(), f"runs/ep{epNum}/last.pt")
+    pBar.set_description(f'loss: {running_loss:.4f} | acc: {tmpAcc:.2f}% | best acc: {bestAcc:.2f}% | lerning rate: {scheduler.get_last_lr()[0]:.4f}')
+writer.close()
+torch.save(net, f"runs/ep{epNum}/last.pt")
+saveCheckpoint(net, optimizer, oldAcc, classes, trainTransform, filename="last")
 print('Finished Training')
 print(f"Best accuracy: {bestAcc}%")
 print(f"Last accuracy: {tmpAcc}%")
