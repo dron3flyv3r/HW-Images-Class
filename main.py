@@ -21,7 +21,7 @@ writer = SummaryWriter(f"runs/ep{epNum}")
 
 # Hyperparameters
 batchSize = 32
-epochs = 25
+epochs = 5
 nClasses = 2
 classes = ["pizza", "not_pizza"]
 dataPath = r"./data/multi"
@@ -164,7 +164,7 @@ for epoch in pBar:
 
     pBar.set_description(f'loss: {running_loss:.4f} | acc: {tmpAcc:.2f}% | best acc: {bestAcc:.2f}% | lerning rate: {scheduler.get_last_lr()[0]:.4f}')
 writer.close()
-torch.save(net, f"runs/ep{epNum}/last.pt")
+torch.save(net.state_dict(), f"runs/ep{epNum}/last.pt")
 saveCheckpoint(net, optimizer, oldAcc, classes, trainTransform, filename="last")
 print('Finished Training')
 print(f"Best accuracy: {bestAcc}%")
