@@ -21,7 +21,7 @@ writer = SummaryWriter(f"runs/ep{epNum}")
 
 # Hyperparameters
 batchSize = 32
-epochs = 5
+epochs = 25
 nClasses = 2
 classes = ["pizza", "not_pizza"]
 dataPath = r"./data/multi"
@@ -102,8 +102,9 @@ def acc():
 def saveCheckpoint(model, optimizer, acc, classes, trans=None, filename='checkpoint'):
     state = {
         'epoch': epoch + 1,
-        'model state': model.state_dict(),
+        'modelState': model.state_dict(),
         'model': model,
+        'macModel': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'accuracy': acc,
         'classes': classes,
@@ -160,11 +161,12 @@ for epoch in pBar:
     if tmpAcc > bestAcc:
         bestAcc = tmpAcc
         torch.save(net, f"runs/ep{epNum}/best.pt")
+        torch.save(net.state_dict(), f"runs/ep{epNum}/mac.pt")
         saveCheckpoint(net, optimizer, bestAcc, classes, trainTransform, filename="best")
 
     pBar.set_description(f'loss: {running_loss:.4f} | acc: {tmpAcc:.2f}% | best acc: {bestAcc:.2f}% | lerning rate: {scheduler.get_last_lr()[0]:.4f}')
 writer.close()
-torch.save(net.state_dict(), f"runs/ep{epNum}/last.pt")
+torch.save(net, f"runs/ep{epNum}/last.pt")
 saveCheckpoint(net, optimizer, oldAcc, classes, trainTransform, filename="last")
 print('Finished Training')
 print(f"Best accuracy: {bestAcc}%")
