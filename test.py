@@ -22,3 +22,5 @@ classes = checkpoint['classifier']
 tran = checkpoint['transform']
 classify(model, imgPath, tran, classes)
 
+
+

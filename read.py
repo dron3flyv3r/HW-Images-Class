@@ -1,28 +1,14 @@
 import torch
-import torchvision.transforms as transforms
 from PIL import Image
 
-classes = ["pizza", "not_pizza"]
+checkpoint = torch.load(r"runs\ep6\best.pth.tar")
+
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-# Hyperparameters
-imgSize = (224, 224)
-std = [0.2059, 0.2202, 0.2091]
-mean = [0.5657, 0.4289, 0.3180]
-
-model = torch.load(r"runs\ep6\best.pt")
-model = model.to(device)
-
-transform = transforms.Compose([
-    transforms.Resize(imgSize),
-    transforms.ToTensor(),
-    transforms.Normalize(torch.Tensor(mean), torch.Tensor(std)
-)])
-
-def classify(model, imageTransform, imgPath, classes):
+def classify(model, imgPath, trans=None, classes=[]):
     model = model.eval()
     img = Image.open(imgPath)
-    img = imageTransform(img)
+    img = trans(img)
     img = img.unsqueeze(0)
     img = img.to(device)
 
@@ -30,4 +16,8 @@ def classify(model, imageTransform, imgPath, classes):
     _, pred = torch.max(output, 1)
     print(f"Prediction: {classes[pred.item()]}")
 
-classify(model, transform, r"test\bella.jpg", classes)
+imgPath = r"test\pizza.jpg"
+model = checkpoint['model']
+classes = checkpoint['classifier']
+tran = checkpoint['transform']
+classify(model, imgPath, tran, classes)
